@@ -330,6 +330,38 @@ function buildChartOption(data, indicator) {
       trigger: 'axis', axisPointer: { type: 'cross' },
       backgroundColor: '#1e293bee', borderColor: '#334155',
       textStyle: { color: '#f8fafc', fontSize: 12, fontFamily: "'JetBrains Mono', monospace" },
+      formatter: function (params) {
+        if (!params || !params.length) return '';
+        const klineParam = params.find(p => p.seriesName === 'K线');
+        if (!klineParam) return '';
+        const idx = klineParam.dataIndex;
+        const { open, close, low, high } = data[idx];
+        const preClose = idx > 0 ? data[idx - 1].close : open;
+        const change = close - preClose;
+        const changePct = preClose ? ((change / preClose) * 100).toFixed(2) : '0.00';
+        const changeColor = change > 0 ? '#ef4444' : change < 0 ? '#22c55e' : '#94a3b8';
+        const sign = change > 0 ? '+' : '';
+        let html = `<div style="font-size:12px;line-height:1.8">`;
+        html += `<div style="font-weight:600;margin-bottom:2px">${dates[idx]}</div>`;
+        html += `<div>开盘: <b>${open.toFixed(2)}</b></div>`;
+        html += `<div>收盘: <b>${close.toFixed(2)}</b></div>`;
+        html += `<div>最高: <b style="color:#ef4444">${high.toFixed(2)}</b></div>`;
+        html += `<div>最低: <b style="color:#22c55e">${low.toFixed(2)}</b></div>`;
+        html += `<div style="color:${changeColor}">涨幅: <b>${sign}${changePct}%</b></div>`;
+        const volParam = params.find(p => p.seriesName === '成交量');
+        if (volParam) html += `<div>成交量: <b>${formatVolume(volParam.data.value ?? volParam.data)}</b></div>`;
+        // 技术指标
+        params.forEach(p => {
+          if (p.seriesName !== 'K线' && p.seriesName !== '成交量' && p.data != null) {
+            const val = typeof p.data === 'object' ? p.data.value : p.data;
+            if (val != null && !isNaN(val)) {
+              html += `<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:4px"></span>${p.seriesName}: <b>${parseFloat(val).toFixed(2)}</b></div>`;
+            }
+          }
+        });
+        html += `</div>`;
+        return html;
+      },
     },
     legend: { top: 4, textStyle: { color: '#94a3b8', fontSize: 11 }, itemWidth: 14, itemHeight: 10 },
     grid: grids,
