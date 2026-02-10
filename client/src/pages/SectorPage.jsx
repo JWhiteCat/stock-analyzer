@@ -14,6 +14,20 @@ function formatPct(value) {
   return `${sign}${value.toFixed(2)}%`;
 }
 
+function SkeletonRow() {
+  return (
+    <div className="sector-list-row" style={{ cursor: 'default' }}>
+      <div className="sl-name">
+        <div className="skeleton skeleton-line" style={{ width: 80, height: 14, marginBottom: 4 }} />
+        <div className="skeleton skeleton-line" style={{ width: 40, height: 10 }} />
+      </div>
+      <div className="sl-change"><div className="skeleton skeleton-line" style={{ width: 50, height: 14, marginLeft: 'auto' }} /></div>
+      <div className="sl-lead"><div className="skeleton skeleton-line" style={{ width: 60, height: 12, marginLeft: 'auto' }} /></div>
+      <div className="sl-lead-pct"><div className="skeleton skeleton-line" style={{ width: 50, height: 12, marginLeft: 'auto' }} /></div>
+    </div>
+  );
+}
+
 function SectorPage() {
   const navigate = useNavigate();
   const [type, setType] = useState('industry');
@@ -63,7 +77,13 @@ function SectorPage() {
     <div>
       <div className="card">
         <div className="card-title">
-          板块分类
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            板块分类
+          </div>
           <div className="chart-controls" style={{ marginBottom: 0 }}>
             <button className={`chart-btn ${type === 'industry' ? 'active' : ''}`} onClick={() => setType('industry')}>
               行业板块
@@ -100,7 +120,10 @@ function SectorDetailView({ sector, detail, loading, onClose, onStockClick }) {
   if (loading) {
     return (
       <div className="card">
-        <div className="loading"><div className="spinner" /></div>
+        <div className="loading">
+          <div className="spinner" />
+          <span className="loading-text">加载板块详情...</span>
+        </div>
       </div>
     );
   }
@@ -118,10 +141,14 @@ function SectorDetailView({ sector, detail, loading, onClose, onStockClick }) {
   return (
     <div className="card">
       <div className="card-title">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="sector-back-btn" onClick={onClose}>&larr;</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button className="sector-back-btn" onClick={onClose}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/>
+            </svg>
+          </button>
           {sector.name}
-          <span className={pctClass(sector.changePercent)} style={{ fontSize: 14 }}>
+          <span className={pctClass(sector.changePercent)} style={{ fontSize: 14, fontFamily: 'var(--font-mono)' }}>
             {formatPct(sector.changePercent)}
           </span>
         </div>
@@ -181,11 +208,31 @@ function SectorDetailView({ sector, detail, loading, onClose, onStockClick }) {
 
 function SectorListView({ sectors, loading, onSectorClick }) {
   if (loading) {
-    return <div className="loading"><div className="spinner" /></div>;
+    return (
+      <div className="sector-list-table">
+        <div className="sector-list-header">
+          <span className="sl-name">板块名称</span>
+          <span className="sl-change">涨跌幅</span>
+          <span className="sl-lead">领涨股</span>
+          <span className="sl-lead-pct">涨幅</span>
+        </div>
+        {[1,2,3,4,5,6,7,8].map(i => <SkeletonRow key={i} />)}
+      </div>
+    );
   }
 
   if (sectors.length === 0) {
-    return <div className="empty-state"><p>暂无板块数据</p></div>;
+    return (
+      <div className="empty-state">
+        <div className="icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.4 }}>
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+        </div>
+        <p>暂无板块数据</p>
+      </div>
+    );
   }
 
   return (
