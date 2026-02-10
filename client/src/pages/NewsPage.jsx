@@ -19,6 +19,15 @@ function SkeletonNews() {
   );
 }
 
+function timeAgo(timestamp) {
+  if (!timestamp) return '';
+  const diff = Math.floor(Date.now() / 1000) - timestamp;
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
+  return `${Math.floor(diff / 86400)}天前`;
+}
+
 function NewsPage() {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,15 +55,6 @@ function NewsPage() {
       }
     } catch (e) { console.error(e); }
     finally { setLoadingMore(false); }
-  }
-
-  function timeAgo(timestamp) {
-    if (!timestamp) return '';
-    const diff = Math.floor(Date.now() / 1000) - timestamp;
-    if (diff < 60) return '刚刚';
-    if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-    return `${Math.floor(diff / 86400)}天前`;
   }
 
   if (loading) {

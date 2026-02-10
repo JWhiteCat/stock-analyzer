@@ -94,3 +94,13 @@ export function formatAmount(v) {
   if (v >= 1e4) return (v / 1e4).toFixed(2) + '万';
   return v?.toFixed(2) || '0';
 }
+
+export function priceClass(change) {
+  if (change > 0) return 'price-up';
+  if (change < 0) return 'price-down';
+  return 'price-flat';
+}
+
+export function formatSign(value) {
+  return value > 0 ? '+' : '';
+}

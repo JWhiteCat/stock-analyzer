@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMultiQuotes } from '../utils/api.js';
 import { getFavorites, removeFavorite } from '../utils/favorites.js';
+import { priceClass, formatSign } from '../utils/indicators.js';
 
 function FavoritesPage() {
   const [favorites, setFavorites] = useState([]);
@@ -75,7 +76,7 @@ function FavoritesPage() {
       </div>
       <div className="stock-grid">
         {stocks.map((stock) => {
-          const cls = stock.change > 0 ? 'price-up' : stock.change < 0 ? 'price-down' : 'price-flat';
+          const cls = priceClass(stock.change);
           return (
             <div key={stock.symbol} className="stock-card" onClick={() => navigate(`/stock/${stock.symbol}`)}>
               <div className="stock-header">
@@ -92,8 +93,8 @@ function FavoritesPage() {
               </div>
               <div className={`stock-price ${cls}`}>{stock.price?.toFixed(2) || '--'}</div>
               <div className={`stock-change ${cls}`}>
-                <span>{stock.change > 0 ? '+' : ''}{stock.change?.toFixed(2)}</span>
-                <span>{stock.change > 0 ? '+' : ''}{stock.changePercent?.toFixed(2)}%</span>
+                <span>{formatSign(stock.change)}{stock.change?.toFixed(2)}</span>
+                <span>{formatSign(stock.change)}{stock.changePercent?.toFixed(2)}%</span>
               </div>
             </div>
           );

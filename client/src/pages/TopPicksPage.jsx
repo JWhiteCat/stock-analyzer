@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTopRated } from '../utils/api.js';
+import { priceClass, formatSign } from '../utils/indicators.js';
 
 const FILTERS = [
   { label: '全部', min: 0 },
@@ -17,6 +18,18 @@ function SkeletonRow() {
       <div className="tp-score"><div className="skeleton skeleton-line" style={{ width: 40, height: 20 }} /></div>
       <div className="tp-price"><div className="skeleton skeleton-line" style={{ width: 60, height: 14 }} /></div>
       <div className="tp-change"><div className="skeleton skeleton-line" style={{ width: 50, height: 14 }} /></div>
+    </div>
+  );
+}
+
+function TableHeader() {
+  return (
+    <div className="top-pick-header">
+      <div className="tp-rank">#</div>
+      <div className="tp-info">股票</div>
+      <div className="tp-score">评分</div>
+      <div className="tp-price">现价</div>
+      <div className="tp-change">涨跌幅</div>
     </div>
   );
 }
@@ -44,21 +57,20 @@ function TopPicksPage() {
 
   const filtered = stocks.filter(s => s.score >= FILTERS[filter].min);
 
-  const scoreColor = (score) => {
+  function scoreColor(score) {
     if (score >= 75) return 'var(--red)';
     if (score >= 60) return '#f97316';
     if (score >= 45) return 'var(--text-muted)';
     if (score >= 30) return '#22c55e';
     return 'var(--green)';
-  };
+  }
 
-  const scoreBg = (score) => {
+  function scoreBg(score) {
     if (score >= 75) return 'var(--red-soft)';
     if (score >= 60) return 'rgba(249, 115, 22, 0.12)';
     if (score >= 45) return 'rgba(148, 163, 184, 0.1)';
-    if (score >= 30) return 'var(--green-soft)';
     return 'var(--green-soft)';
-  };
+  }
 
   return (
     <div>
@@ -91,13 +103,7 @@ function TopPicksPage() {
 
         {loading ? (
           <div className="top-picks-list">
-            <div className="top-pick-header">
-              <div className="tp-rank">#</div>
-              <div className="tp-info">股票</div>
-              <div className="tp-score">评分</div>
-              <div className="tp-price">现价</div>
-              <div className="tp-change">涨跌幅</div>
-            </div>
+            <TableHeader />
             {[1,2,3,4,5,6,7,8].map(i => <SkeletonRow key={i} />)}
           </div>
         ) : filtered.length === 0 ? (
@@ -111,15 +117,9 @@ function TopPicksPage() {
           </div>
         ) : (
           <div className="top-picks-list">
-            <div className="top-pick-header">
-              <div className="tp-rank">#</div>
-              <div className="tp-info">股票</div>
-              <div className="tp-score">评分</div>
-              <div className="tp-price">现价</div>
-              <div className="tp-change">涨跌幅</div>
-            </div>
+            <TableHeader />
             {filtered.map((stock, idx) => {
-              const cls = stock.change > 0 ? 'price-up' : stock.change < 0 ? 'price-down' : 'price-flat';
+              const cls = priceClass(stock.change);
               return (
                 <div key={stock.symbol} className="top-pick-row" onClick={() => navigate(`/stock/${stock.symbol}`)}>
                   <div className="tp-rank">
@@ -142,7 +142,7 @@ function TopPicksPage() {
                   </div>
                   <div className={`tp-price ${cls}`}>{stock.price?.toFixed(2) || '--'}</div>
                   <div className={`tp-change ${cls}`}>
-                    {stock.change > 0 ? '+' : ''}{stock.changePercent?.toFixed(2)}%
+                    {formatSign(stock.change)}{stock.changePercent?.toFixed(2)}%
                   </div>
                 </div>
               );

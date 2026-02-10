@@ -37,8 +37,7 @@ function Layout() {
   const [results, setResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const timerRef = useRef(null);
-
-  const isActive = (path) => location.pathname === path;
+  const currentPath = location.pathname;
 
   const handleSearch = useCallback((e) => {
     const val = e.target.value;
@@ -101,7 +100,7 @@ function Layout() {
 
       <nav className="nav-tabs">
         {NAV_ITEMS.map(({ path, label }) => (
-          <Link key={path} to={path} className={isActive(path) ? 'active' : ''}>{label}</Link>
+          <Link key={path} to={path} className={currentPath === path ? 'active' : ''}>{label}</Link>
         ))}
       </nav>
 

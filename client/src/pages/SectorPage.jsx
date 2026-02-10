@@ -1,13 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSectors, getSectorDetail } from '../utils/api.js';
-import { formatAmount } from '../utils/indicators.js';
-
-function pctClass(value) {
-  if (value > 0) return 'price-up';
-  if (value < 0) return 'price-down';
-  return 'price-flat';
-}
+import { formatAmount, priceClass } from '../utils/indicators.js';
 
 function formatPct(value) {
   const sign = value > 0 ? '+' : '';
@@ -148,7 +142,7 @@ function SectorDetailView({ sector, detail, loading, onClose, onStockClick }) {
             </svg>
           </button>
           {sector.name}
-          <span className={pctClass(sector.changePercent)} style={{ fontSize: 14, fontFamily: 'var(--font-mono)' }}>
+          <span className={priceClass(sector.changePercent)} style={{ fontSize: 14, fontFamily: 'var(--font-mono)' }}>
             {formatPct(sector.changePercent)}
           </span>
         </div>
@@ -169,7 +163,7 @@ function SectorDetailView({ sector, detail, loading, onClose, onStockClick }) {
         </div>
         <div className="stat-item">
           <span className="stat-label">平均涨幅</span>
-          <span className={`stat-value ${pctClass(stats.avgChange)}`}>
+          <span className={`stat-value ${priceClass(stats.avgChange)}`}>
             {formatPct(stats.avgChange)}
           </span>
         </div>
@@ -192,10 +186,10 @@ function SectorDetailView({ sector, detail, loading, onClose, onStockClick }) {
               <div className="stock-row-name">{stock.name}</div>
               <div className="stock-row-code">{stock.symbol}</div>
             </div>
-            <span className={`col-price ${pctClass(stock.changePercent)}`}>
+            <span className={`col-price ${priceClass(stock.changePercent)}`}>
               {stock.price.toFixed(2)}
             </span>
-            <span className={`col-change ${pctClass(stock.changePercent)}`}>
+            <span className={`col-change ${priceClass(stock.changePercent)}`}>
               {formatPct(stock.changePercent)}
             </span>
             <span className="col-volume">{formatAmount(stock.amount)}</span>
@@ -249,11 +243,11 @@ function SectorListView({ sectors, loading, onSectorClick }) {
             <div className="sl-sector-name">{sector.name}</div>
             <div className="sl-sector-count">{sector.stockCount}只</div>
           </div>
-          <span className={`sl-change ${pctClass(sector.changePercent)}`}>
+          <span className={`sl-change ${priceClass(sector.changePercent)}`}>
             {formatPct(sector.changePercent)}
           </span>
           <span className="sl-lead">{sector.leadName}</span>
-          <span className={`sl-lead-pct ${pctClass(sector.leadChangePercent)}`}>
+          <span className={`sl-lead-pct ${priceClass(sector.leadChangePercent)}`}>
             {formatPct(sector.leadChangePercent)}
           </span>
         </div>

@@ -9,7 +9,7 @@ import {
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { getQuote, getKline, getAnalysis } from '../utils/api.js';
-import { calcMA, calcMACD, calcRSI, calcKDJ, calcBOLL, formatVolume, formatAmount } from '../utils/indicators.js';
+import { calcMA, calcMACD, calcRSI, calcKDJ, calcBOLL, formatVolume, formatAmount, priceClass, formatSign } from '../utils/indicators.js';
 import { addFavorite, removeFavorite, isFavorite } from '../utils/favorites.js';
 
 echarts.use([
@@ -34,6 +34,14 @@ const INDICATORS = [
   { key: 'kdj', label: 'KDJ' },
   { key: 'boll', label: 'BOLL' },
 ];
+
+const RATING_CLASS_MAP = { bull: 'price-up', bear: 'price-down', neutral: 'price-flat' };
+
+function ratingToPriceClass(ratingClass) {
+  return RATING_CLASS_MAP[ratingClass] || 'price-flat';
+}
+
+const SIGNAL_ICONS = { bull: '\u25B2', bear: '\u25BC', neutral: '\u25CF' };
 
 function StockDetail() {
   const { symbol } = useParams();
@@ -104,7 +112,7 @@ function StockDetail() {
     return buildChartOption(klineData, indicator);
   }, [klineData, indicator]);
 
-  const priceClass = quote ? (quote.change > 0 ? 'price-up' : quote.change < 0 ? 'price-down' : 'price-flat') : '';
+  const cls = quote ? priceClass(quote.change) : '';
 
   return (
     <div>
@@ -124,12 +132,12 @@ function StockDetail() {
 
         {quote && (
           <>
-            <div className={`stock-price ${priceClass}`} style={{ fontSize: 36, fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.03em' }}>
+            <div className={`stock-price ${cls}`} style={{ fontSize: 36, fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.03em' }}>
               {quote.price?.toFixed(2)}
             </div>
-            <div className={`stock-change ${priceClass}`} style={{ fontSize: 16, marginBottom: 12, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
-              <span>{quote.change > 0 ? '+' : ''}{quote.change?.toFixed(2)}</span>
-              <span style={{ marginLeft: 12 }}>{quote.change > 0 ? '+' : ''}{quote.changePercent?.toFixed(2)}%</span>
+            <div className={`stock-change ${cls}`} style={{ fontSize: 16, marginBottom: 12, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+              <span>{formatSign(quote.change)}{quote.change?.toFixed(2)}</span>
+              <span style={{ marginLeft: 12 }}>{formatSign(quote.change)}{quote.changePercent?.toFixed(2)}%</span>
             </div>
             <div className="quote-detail">
               <div className="quote-item"><span className="label">开盘</span><span>{quote.open?.toFixed(2)}</span></div>
@@ -223,12 +231,12 @@ function StockDetail() {
           <div className="analysis-panel">
             <div className="analysis-score-bar">
               <div className="score-gauge">
-                <div className={`score-number ${analysis.ratingClass === 'bull' ? 'price-up' : analysis.ratingClass === 'bear' ? 'price-down' : 'price-flat'}`}>
+                <div className={`score-number ${ratingToPriceClass(analysis.ratingClass)}`}>
                   {analysis.score}
                 </div>
                 <div className="score-label">综合评分</div>
               </div>
-              <div className={`score-rating ${analysis.ratingClass === 'bull' ? 'price-up' : analysis.ratingClass === 'bear' ? 'price-down' : 'price-flat'}`}>
+              <div className={`score-rating ${ratingToPriceClass(analysis.ratingClass)}`}>
                 {analysis.rating}
               </div>
               <div className="score-meter">
@@ -246,7 +254,7 @@ function StockDetail() {
               {analysis.signals?.map((signal, i) => (
                 <div key={i} className={`signal-item signal-${signal.type}`}>
                   <span className="signal-badge">
-                    {signal.type === 'bull' ? '\u25B2' : signal.type === 'bear' ? '\u25BC' : '\u25CF'} {signal.indicator}
+                    {SIGNAL_ICONS[signal.type] || '\u25CF'} {signal.indicator}
                   </span>
                   <span className="signal-text">{signal.text}</span>
                 </div>
@@ -263,6 +271,14 @@ function StockDetail() {
       </div>
     </div>
   );
+}
+
+function makeLineSeries(name, data, color, axisIndex = 0) {
+  return {
+    name, type: 'line', data, smooth: axisIndex === 0, symbol: 'none',
+    lineStyle: { width: 1 }, xAxisIndex: axisIndex, yAxisIndex: axisIndex,
+    itemStyle: { color },
+  };
 }
 
 function buildChartOption(data, indicator) {
@@ -289,37 +305,37 @@ function buildChartOption(data, indicator) {
   ];
 
   if (indicator === 'ma') {
+    const maColors = ['#60a5fa', '#eab308', '#f472b6', '#a78bfa'];
     [5, 10, 20, 60].forEach((p, idx) => {
-      const c = ['#60a5fa', '#eab308', '#f472b6', '#a78bfa'][idx];
-      series.push({ name: `MA${p}`, type: 'line', data: calcMA(data, p), smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: c } });
+      series.push(makeLineSeries(`MA${p}`, calcMA(data, p), maColors[idx]));
     });
   } else if (indicator === 'boll') {
     const boll = calcBOLL(data);
     series.push(
-      { name: 'BOLL上轨', type: 'line', data: boll.upper, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#ef4444' } },
-      { name: 'BOLL中轨', type: 'line', data: boll.mid, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#eab308' } },
-      { name: 'BOLL下轨', type: 'line', data: boll.lower, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#22c55e' } },
+      makeLineSeries('BOLL上轨', boll.upper, '#ef4444'),
+      makeLineSeries('BOLL中轨', boll.mid, '#eab308'),
+      makeLineSeries('BOLL下轨', boll.lower, '#22c55e'),
     );
   }
 
   if (indicator === 'macd') {
     const macd = calcMACD(data);
     series.push(
-      { name: 'DIF', type: 'line', data: macd.dif, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#60a5fa' } },
-      { name: 'DEA', type: 'line', data: macd.dea, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#eab308' } },
+      makeLineSeries('DIF', macd.dif, '#60a5fa', 2),
+      makeLineSeries('DEA', macd.dea, '#eab308', 2),
       { name: 'MACD', type: 'bar', xAxisIndex: 2, yAxisIndex: 2, data: macd.macd.map(v => ({ value: v, itemStyle: { color: v >= 0 ? '#ef444460' : '#22c55e60' } })) },
     );
   } else if (indicator === 'rsi') {
     series.push(
-      { name: 'RSI6', type: 'line', data: calcRSI(data, 6), symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#60a5fa' } },
-      { name: 'RSI14', type: 'line', data: calcRSI(data, 14), symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#eab308' } },
+      makeLineSeries('RSI6', calcRSI(data, 6), '#60a5fa', 2),
+      makeLineSeries('RSI14', calcRSI(data, 14), '#eab308', 2),
     );
   } else if (indicator === 'kdj') {
     const kdj = calcKDJ(data);
     series.push(
-      { name: 'K', type: 'line', data: kdj.k, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#60a5fa' } },
-      { name: 'D', type: 'line', data: kdj.d, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#eab308' } },
-      { name: 'J', type: 'line', data: kdj.j, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#f472b6' } },
+      makeLineSeries('K', kdj.k, '#60a5fa', 2),
+      makeLineSeries('D', kdj.d, '#eab308', 2),
+      makeLineSeries('J', kdj.j, '#f472b6', 2),
     );
   }
 
@@ -350,7 +366,6 @@ function buildChartOption(data, indicator) {
         html += `<div style="color:${changeColor}">涨幅: <b>${sign}${changePct}%</b></div>`;
         const volParam = params.find(p => p.seriesName === '成交量');
         if (volParam) html += `<div>成交量: <b>${formatVolume(volParam.data.value ?? volParam.data)}</b></div>`;
-        // 技术指标
         params.forEach(p => {
           if (p.seriesName !== 'K线' && p.seriesName !== '成交量' && p.data != null) {
             const val = typeof p.data === 'object' ? p.data.value : p.data;
