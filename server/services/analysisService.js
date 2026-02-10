@@ -1,5 +1,19 @@
 // AI-style technical analysis based on indicators
 
+// Cache: symbol -> { result, timestamp }
+const analysisCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCached(symbol) {
+  const entry = analysisCache.get(symbol);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL) return entry.result;
+  return null;
+}
+
+function setCache(symbol, result) {
+  analysisCache.set(symbol, { result, timestamp: Date.now() });
+}
+
 function analyzeStock(quote, klineData) {
   if (!klineData || klineData.length < 30) {
     return { score: 50, rating: '数据不足', signals: [], summary: '历史数据不足，无法进行有效分析。' };
@@ -210,7 +224,9 @@ function analyzeStock(quote, klineData) {
 
   const summary = generateSummary(quote, signals, score, rating);
 
-  return { score, rating, ratingClass, signals, summary, bullScore, bearScore };
+  const result = { score, rating, ratingClass, signals, summary, bullScore, bearScore };
+  if (quote?.symbol) setCache(quote.symbol, result);
+  return result;
 }
 
 function generateSummary(quote, signals, score, rating) {
@@ -293,4 +309,4 @@ function calcKDJ(data) {
   return { k, d, j };
 }
 
-module.exports = { analyzeStock };
+module.exports = { analyzeStock, getCached };

@@ -53,11 +53,48 @@ router.get('/news', asyncHandler((req) => {
 
 router.get('/analyze/:symbol', asyncHandler(async (req) => {
   const { symbol } = req.params;
+  const cached = analysisService.getCached(symbol);
+  if (cached) return cached;
   const [quote, kline] = await Promise.all([
     stockService.getQuote(symbol),
     stockService.getKline(symbol, 'daily', 120),
   ]);
   return analysisService.analyzeStock(quote, kline);
+}));
+
+router.get('/top-rated', asyncHandler(async () => {
+  const symbols = [
+    ...HOT_SYMBOLS,
+    '600030', '601166', '600050', '601398', '600887',
+    '000651', '002415', '300059', '600585', '601857',
+    '000725', '002304', '600000', '601288', '300760',
+    '002230', '600809', '000568', '002714', '601668',
+  ];
+  const unique = [...new Set(symbols)];
+  const quotes = await stockService.getMultiQuotes(unique);
+  if (!quotes || quotes.length === 0) return [];
+
+  const results = [];
+  const BATCH = 4;
+  for (let i = 0; i < quotes.length; i += BATCH) {
+    const batch = quotes.slice(i, i + BATCH);
+    const batchResults = await Promise.all(
+      batch.map(async (quote) => {
+        try {
+          const kline = await stockService.getKline(quote.symbol, 'daily', 120);
+          const analysis = analysisService.analyzeStock(quote, kline);
+          return { ...quote, score: analysis.score, rating: analysis.rating, ratingClass: analysis.ratingClass };
+        } catch {
+          return null;
+        }
+      })
+    );
+    results.push(...batchResults);
+  }
+
+  return results
+    .filter(r => r && r.score != null)
+    .sort((a, b) => b.score - a.score);
 }));
 
 router.get('/sectors', asyncHandler((req) => {
