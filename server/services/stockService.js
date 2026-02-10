@@ -1,5 +1,43 @@
 const axios = require('axios');
 
+// K-line data cache to avoid losing data when API temporarily fails
+const klineCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 500;
+
+// Request queue to throttle concurrent API requests
+let activeRequests = 0;
+const MAX_CONCURRENT = 3;
+const requestQueue = [];
+
+function enqueueRequest(fn) {
+  return new Promise((resolve, reject) => {
+    const execute = async () => {
+      activeRequests++;
+      try {
+        resolve(await fn());
+      } catch (e) {
+        reject(e);
+      } finally {
+        activeRequests--;
+        if (requestQueue.length > 0) {
+          const next = requestQueue.shift();
+          next();
+        }
+      }
+    };
+    if (activeRequests < MAX_CONCURRENT) {
+      execute();
+    } else {
+      requestQueue.push(execute);
+    }
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Fetch real-time stock quote from Sina Finance API
 async function getQuote(symbol) {
   const code = formatSinaCode(symbol);
@@ -17,20 +55,54 @@ async function getKline(symbol, period = 'daily', count = 200) {
   const scaleMap = { daily: 240, weekly: 1200, '60min': 60, '30min': 30, '15min': 15, '5min': 5 };
   const scale = scaleMap[period] || 240;
   const code = formatSinaCode(symbol);
+  const cacheKey = `${symbol}_${period}_${count}`;
 
-  const url = `https://quotes.sina.cn/cn/api/jsonp.php/var/IntelliSearchNT.eTag498765?datefmt=yyyy-MM-dd&cb=&name=cn_${symbol.toLowerCase()}&num=${count}&r=0.${Date.now()}`;
+  // Return fresh cache if available
+  const cached = klineCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.data;
+  }
 
-  // Use money.finance.sina.com.cn for kline
   const klineUrl = `https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=${code}&scale=${scale}&ma=no&datalen=${count}`;
 
-  try {
-    const res = await axios.get(klineUrl, {
-      headers: { Referer: 'https://finance.sina.com.cn' },
-    });
-    return res.data;
-  } catch {
-    return generateMockKline(count);
+  const MAX_RETRIES = 3;
+  let lastErr;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await sleep(1000 * Math.pow(2, attempt - 1)); // 1s, 2s backoff
+    }
+    try {
+      const res = await enqueueRequest(() =>
+        axios.get(klineUrl, {
+          headers: { Referer: 'https://finance.sina.com.cn' },
+          timeout: 20000,
+        })
+      );
+      if (!Array.isArray(res.data) || res.data.length === 0) {
+        throw new Error('Empty K-line data from API');
+      }
+      // Cache successful result, evict old entries if needed
+      if (klineCache.size >= MAX_CACHE_SIZE) {
+        const oldest = [...klineCache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+        if (oldest) klineCache.delete(oldest[0]);
+      }
+      klineCache.set(cacheKey, { data: res.data, timestamp: Date.now() });
+      return res.data;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[KLine] Attempt ${attempt + 1}/${MAX_RETRIES} failed for ${symbol}:`, err.message);
+    }
   }
+
+  // All retries failed - return stale cache if available
+  if (cached) {
+    console.warn(`[KLine] All retries failed for ${symbol}, using stale cached data`);
+    return cached.data;
+  }
+
+  console.error(`[KLine] All retries failed for ${symbol}, no cached data available:`, lastErr?.message);
+  throw new Error(`无法获取 ${symbol} 的K线数据，请稍后重试`);
 }
 
 // Fetch multiple stock quotes
@@ -109,29 +181,6 @@ function parseSinaQuote(symbol, text) {
     changePercent: +changePercent.toFixed(2),
     time: `${date} ${time}`,
   };
-}
-
-function generateMockKline(count) {
-  const data = [];
-  let price = 15 + Math.random() * 20;
-  const now = new Date();
-  for (let i = count; i > 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const open = price + (Math.random() - 0.5) * 2;
-    const close = open + (Math.random() - 0.5) * 3;
-    const high = Math.max(open, close) + Math.random() * 1.5;
-    const low = Math.min(open, close) - Math.random() * 1.5;
-    const volume = Math.floor(50000 + Math.random() * 200000);
-    data.push({
-      day: date.toISOString().slice(0, 10),
-      open: +open.toFixed(2), close: +close.toFixed(2),
-      high: +high.toFixed(2), low: +low.toFixed(2),
-      volume,
-    });
-    price = close;
-  }
-  return data;
 }
 
 // Fetch market indices (上证/深证/创业板)
