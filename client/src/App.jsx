@@ -6,6 +6,7 @@ import FavoritesPage from './pages/FavoritesPage.jsx';
 import SearchPage from './pages/SearchPage.jsx';
 import NewsPage from './pages/NewsPage.jsx';
 import SectorPage from './pages/SectorPage.jsx';
+import TopPicksPage from './pages/TopPicksPage.jsx';
 import './index.css';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/news" element={<NewsPage />} />
           <Route path="/sectors" element={<SectorPage />} />
+          <Route path="/top-picks" element={<TopPicksPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
-const api = axios.create({ baseURL: API_BASE, timeout: 10000 });
+const api = axios.create({ baseURL: API_BASE, timeout: 30000 });
 
 export async function getQuote(symbol) {
   const { data } = await api.get(`/stock/quote/${symbol}`);
@@ -51,5 +51,10 @@ export async function getSectors(type = 'industry') {
 
 export async function getSectorDetail(code) {
   const { data } = await api.get(`/stock/sector/${code}`);
+  return data.data;
+}
+
+export async function getTopRated() {
+  const { data } = await api.get('/stock/top-rated', { timeout: 60000 });
   return data.data;
 }

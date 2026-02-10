@@ -11,7 +11,12 @@ const NAV_ITEMS = [
   {
     path: '/sectors',
     label: '板块',
-    icon: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></>,
+    icon: <><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
+  },
+  {
+    path: '/top-picks',
+    label: '精选',
+    icon: <><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14l-5-4.87 6.91-1.01z"/></>,
   },
   {
     path: '/favorites',
@@ -61,10 +66,16 @@ function Layout() {
     <div className="app-layout">
       <header className="app-header">
         <Link to="/" className="logo">
+          <div className="logo-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+              <polyline points="16 7 22 7 22 13"/>
+            </svg>
+          </div>
           StockView <span>A股分析</span>
         </Link>
         <div className="search-container">
-          <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
@@ -95,14 +106,16 @@ function Layout() {
       </nav>
 
       <main className="app-main">
-        <Outlet />
+        <div className="page-enter">
+          <Outlet />
+        </div>
       </main>
 
       <div className="bottom-nav">
         <div className="nav-items">
           {NAV_ITEMS.map(({ path, label, icon }) => (
             <div key={path} className={`nav-item ${isActive(path) ? 'active' : ''}`} onClick={() => navigate(path)}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {icon}
               </svg>
               {label}

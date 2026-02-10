@@ -43,6 +43,7 @@ function StockDetail() {
   const [indicator, setIndicator] = useState('ma');
   const [fav, setFav] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [klineError, setKlineError] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
 
@@ -59,8 +60,9 @@ function StockDetail() {
     catch (e) { console.error(e); }
   }
 
-  async function loadKline() {
+  async function loadKline(retries = 2) {
     setLoading(true);
+    setKlineError(null);
     try {
       const raw = await getKline(symbol, period, 200);
       const data = Array.isArray(raw) ? raw.map(d => ({
@@ -72,7 +74,14 @@ function StockDetail() {
         volume: parseInt(d.volume),
       })) : [];
       setKlineData(data);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      if (retries > 0) {
+        await new Promise(r => setTimeout(r, 1500));
+        return loadKline(retries - 1);
+      }
+      setKlineError('K线数据加载失败，请点击重试');
+    }
     finally { setLoading(false); }
   }
 
@@ -101,23 +110,26 @@ function StockDetail() {
     <div>
       <div className="card">
         <div className="card-title">
-          <div>
-            {quote?.name || symbol}
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)', marginLeft: 8 }}>{symbol}</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span>{quote?.name || symbol}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{symbol}</span>
           </div>
           <button className={`fav-btn ${fav ? 'active' : ''}`} onClick={toggleFavorite}>
-            {fav ? '\u2605 已自选' : '\u2606 加自选'}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill={fav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            {fav ? '已自选' : '加自选'}
           </button>
         </div>
 
         {quote && (
           <>
-            <div className={`stock-price ${priceClass}`} style={{ fontSize: 32, fontWeight: 700 }}>
+            <div className={`stock-price ${priceClass}`} style={{ fontSize: 36, fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.03em' }}>
               {quote.price?.toFixed(2)}
             </div>
-            <div className={`stock-change ${priceClass}`} style={{ fontSize: 16, marginBottom: 12 }}>
+            <div className={`stock-change ${priceClass}`} style={{ fontSize: 16, marginBottom: 12, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
               <span>{quote.change > 0 ? '+' : ''}{quote.change?.toFixed(2)}</span>
-              <span style={{ marginLeft: 8 }}>{quote.change > 0 ? '+' : ''}{quote.changePercent?.toFixed(2)}%</span>
+              <span style={{ marginLeft: 12 }}>{quote.change > 0 ? '+' : ''}{quote.changePercent?.toFixed(2)}%</span>
             </div>
             <div className="quote-detail">
               <div className="quote-item"><span className="label">开盘</span><span>{quote.open?.toFixed(2)}</span></div>
@@ -128,6 +140,16 @@ function StockDetail() {
               <div className="quote-item"><span className="label">成交额</span><span>{formatAmount(quote.amount || 0)}</span></div>
             </div>
           </>
+        )}
+
+        {!quote && (
+          <div style={{ padding: '16px 0' }}>
+            <div className="skeleton skeleton-line" style={{ width: 160, height: 36, marginBottom: 8 }} />
+            <div className="skeleton skeleton-line" style={{ width: 200, height: 16, marginBottom: 12 }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
+              {[1,2,3,4,5,6].map(i => <div key={i} className="skeleton skeleton-line" style={{ height: 36 }} />)}
+            </div>
+          </div>
         )}
       </div>
 
@@ -149,24 +171,53 @@ function StockDetail() {
         </div>
 
         {loading ? (
-          <div className="loading"><div className="spinner" /></div>
+          <div className="loading">
+            <div className="spinner" />
+            <span className="loading-text">加载图表数据...</span>
+          </div>
+        ) : klineError ? (
+          <div className="empty-state">
+            <div className="icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.4 }}>
+                <circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/>
+              </svg>
+            </div>
+            <p>{klineError}</p>
+            <button className="chart-btn active" onClick={loadKline} style={{ marginTop: 8 }}>重试</button>
+          </div>
         ) : klineData.length > 0 ? (
           <ReactEChartsCore echarts={echarts} option={chartOption} style={{ height: 500 }} notMerge lazyUpdate />
         ) : (
-          <div className="empty-state"><p>暂无K线数据</p></div>
+          <div className="empty-state">
+            <div className="icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ opacity: 0.4 }}>
+                <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 14l3-3 2 2 5-5"/>
+              </svg>
+            </div>
+            <p>暂无K线数据</p>
+          </div>
         )}
       </div>
 
-      {/* AI Analysis Panel */}
       <div className="card">
         <div className="card-title">
-          AI 技术分析
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-light)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/>
+            </svg>
+            AI 技术分析
+          </div>
           <button className="chart-btn" onClick={loadAnalysis} disabled={analysisLoading}>
             {analysisLoading ? '分析中...' : '刷新分析'}
           </button>
         </div>
 
-        {analysisLoading && <div className="loading"><div className="spinner" /></div>}
+        {analysisLoading && (
+          <div className="loading">
+            <div className="spinner" />
+            <span className="loading-text">AI分析计算中...</span>
+          </div>
+        )}
 
         {!analysisLoading && analysis && (
           <div className="analysis-panel">
@@ -218,7 +269,7 @@ function buildChartOption(data, indicator) {
   const dates = data.map(d => d.day);
   const ohlc = data.map(d => [d.open, d.close, d.low, d.high]);
   const volumes = data.map(d => d.volume);
-  const colors = data.map(d => d.close >= d.open ? '#f85149' : '#3fb950');
+  const colors = data.map(d => d.close >= d.open ? '#ef4444' : '#22c55e');
 
   const grids = [
     { left: 50, right: 20, top: 30, height: '45%' },
@@ -229,68 +280,72 @@ function buildChartOption(data, indicator) {
   const series = [
     {
       name: 'K线', type: 'candlestick', data: ohlc, xAxisIndex: 0, yAxisIndex: 0,
-      itemStyle: { color: '#f85149', color0: '#3fb950', borderColor: '#f85149', borderColor0: '#3fb950' },
+      itemStyle: { color: '#ef4444', color0: '#22c55e', borderColor: '#ef4444', borderColor0: '#22c55e' },
     },
     {
       name: '成交量', type: 'bar', xAxisIndex: 1, yAxisIndex: 1,
-      data: volumes.map((v, i) => ({ value: v, itemStyle: { color: colors[i] + '80' } })),
+      data: volumes.map((v, i) => ({ value: v, itemStyle: { color: colors[i] + '60' } })),
     },
   ];
 
   if (indicator === 'ma') {
     [5, 10, 20, 60].forEach((p, idx) => {
-      const c = ['#58a6ff', '#d29922', '#f778ba', '#a371f7'][idx];
+      const c = ['#60a5fa', '#eab308', '#f472b6', '#a78bfa'][idx];
       series.push({ name: `MA${p}`, type: 'line', data: calcMA(data, p), smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: c } });
     });
   } else if (indicator === 'boll') {
     const boll = calcBOLL(data);
     series.push(
-      { name: 'BOLL上轨', type: 'line', data: boll.upper, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#f85149' } },
-      { name: 'BOLL中轨', type: 'line', data: boll.mid, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#d29922' } },
-      { name: 'BOLL下轨', type: 'line', data: boll.lower, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#3fb950' } },
+      { name: 'BOLL上轨', type: 'line', data: boll.upper, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#ef4444' } },
+      { name: 'BOLL中轨', type: 'line', data: boll.mid, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#eab308' } },
+      { name: 'BOLL下轨', type: 'line', data: boll.lower, smooth: true, lineStyle: { width: 1 }, symbol: 'none', xAxisIndex: 0, yAxisIndex: 0, itemStyle: { color: '#22c55e' } },
     );
   }
 
   if (indicator === 'macd') {
     const macd = calcMACD(data);
     series.push(
-      { name: 'DIF', type: 'line', data: macd.dif, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#58a6ff' } },
-      { name: 'DEA', type: 'line', data: macd.dea, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#d29922' } },
-      { name: 'MACD', type: 'bar', xAxisIndex: 2, yAxisIndex: 2, data: macd.macd.map(v => ({ value: v, itemStyle: { color: v >= 0 ? '#f8514980' : '#3fb95080' } })) },
+      { name: 'DIF', type: 'line', data: macd.dif, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#60a5fa' } },
+      { name: 'DEA', type: 'line', data: macd.dea, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#eab308' } },
+      { name: 'MACD', type: 'bar', xAxisIndex: 2, yAxisIndex: 2, data: macd.macd.map(v => ({ value: v, itemStyle: { color: v >= 0 ? '#ef444460' : '#22c55e60' } })) },
     );
   } else if (indicator === 'rsi') {
     series.push(
-      { name: 'RSI6', type: 'line', data: calcRSI(data, 6), symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#58a6ff' } },
-      { name: 'RSI14', type: 'line', data: calcRSI(data, 14), symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#d29922' } },
+      { name: 'RSI6', type: 'line', data: calcRSI(data, 6), symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#60a5fa' } },
+      { name: 'RSI14', type: 'line', data: calcRSI(data, 14), symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#eab308' } },
     );
   } else if (indicator === 'kdj') {
     const kdj = calcKDJ(data);
     series.push(
-      { name: 'K', type: 'line', data: kdj.k, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#58a6ff' } },
-      { name: 'D', type: 'line', data: kdj.d, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#d29922' } },
-      { name: 'J', type: 'line', data: kdj.j, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#f778ba' } },
+      { name: 'K', type: 'line', data: kdj.k, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#60a5fa' } },
+      { name: 'D', type: 'line', data: kdj.d, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#eab308' } },
+      { name: 'J', type: 'line', data: kdj.j, symbol: 'none', lineStyle: { width: 1 }, xAxisIndex: 2, yAxisIndex: 2, itemStyle: { color: '#f472b6' } },
     );
   }
 
   return {
     backgroundColor: 'transparent',
     animation: false,
-    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, backgroundColor: '#1c2333ee', borderColor: '#30363d', textStyle: { color: '#e6edf3', fontSize: 12 } },
-    legend: { top: 4, textStyle: { color: '#8b949e', fontSize: 11 }, itemWidth: 14, itemHeight: 10 },
+    tooltip: {
+      trigger: 'axis', axisPointer: { type: 'cross' },
+      backgroundColor: '#1e293bee', borderColor: '#334155',
+      textStyle: { color: '#f8fafc', fontSize: 12, fontFamily: "'JetBrains Mono', monospace" },
+    },
+    legend: { top: 4, textStyle: { color: '#94a3b8', fontSize: 11 }, itemWidth: 14, itemHeight: 10 },
     grid: grids,
     xAxis: [
-      { type: 'category', data: dates, gridIndex: 0, axisLine: { lineStyle: { color: '#30363d' } }, axisLabel: { show: false }, axisTick: { show: false } },
-      { type: 'category', data: dates, gridIndex: 1, axisLine: { lineStyle: { color: '#30363d' } }, axisLabel: { show: false }, axisTick: { show: false } },
-      { type: 'category', data: dates, gridIndex: 2, axisLine: { lineStyle: { color: '#30363d' } }, axisLabel: { color: '#8b949e', fontSize: 10 }, axisTick: { show: false } },
+      { type: 'category', data: dates, gridIndex: 0, axisLine: { lineStyle: { color: '#1e293b' } }, axisLabel: { show: false }, axisTick: { show: false } },
+      { type: 'category', data: dates, gridIndex: 1, axisLine: { lineStyle: { color: '#1e293b' } }, axisLabel: { show: false }, axisTick: { show: false } },
+      { type: 'category', data: dates, gridIndex: 2, axisLine: { lineStyle: { color: '#1e293b' } }, axisLabel: { color: '#64748b', fontSize: 10 }, axisTick: { show: false } },
     ],
     yAxis: [
-      { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: '#30363d30' } }, axisLabel: { color: '#8b949e', fontSize: 10 }, axisLine: { show: false } },
-      { scale: true, gridIndex: 1, splitNumber: 2, splitLine: { show: false }, axisLabel: { color: '#8b949e', fontSize: 10, formatter: v => formatVolume(v) }, axisLine: { show: false } },
-      { scale: true, gridIndex: 2, splitNumber: 3, splitLine: { lineStyle: { color: '#30363d30' } }, axisLabel: { color: '#8b949e', fontSize: 10 }, axisLine: { show: false } },
+      { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: '#1e293b30' } }, axisLabel: { color: '#64748b', fontSize: 10 }, axisLine: { show: false } },
+      { scale: true, gridIndex: 1, splitNumber: 2, splitLine: { show: false }, axisLabel: { color: '#64748b', fontSize: 10, formatter: v => formatVolume(v) }, axisLine: { show: false } },
+      { scale: true, gridIndex: 2, splitNumber: 3, splitLine: { lineStyle: { color: '#1e293b30' } }, axisLabel: { color: '#64748b', fontSize: 10 }, axisLine: { show: false } },
     ],
     dataZoom: [
       { type: 'inside', xAxisIndex: [0, 1, 2], start: 60, end: 100 },
-      { type: 'slider', xAxisIndex: [0, 1, 2], bottom: 4, height: 16, borderColor: '#30363d', fillerColor: '#58a6ff20', textStyle: { color: '#8b949e' } },
+      { type: 'slider', xAxisIndex: [0, 1, 2], bottom: 4, height: 16, borderColor: '#1e293b', fillerColor: '#3b82f620', textStyle: { color: '#64748b' } },
     ],
     series,
   };
